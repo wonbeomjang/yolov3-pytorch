@@ -57,24 +57,22 @@ class YOLOLayer(nn.Module):
         x = x.permute(0, 1, 3, 4, 2)
         x = x.contiguous()
 
-        obj_score = torch.sigmoid(x[..., 4])
-        cls_score = torch.sigmoid(x[..., 5:])
-
         if grid_size != self.grid_size:
             self.compute_grid_offsets(grid_size, device)
 
-        if self.train:
+        if not self.training:
+            obj_score = torch.sigmoid(x[..., 4])
+            cls_score = torch.sigmoid(x[..., 5:])
+
             pred_bboxes = self.transform_output(x)
-        else:
-            pred_bboxes = x[..., 0:5]
+            output = torch.cat((
+                pred_bboxes.view(batch_size, -1, 4),
+                obj_score.view(batch_size, -1, 1),
+                cls_score.view(batch_size, -1, self.num_classes)
+            ), dim=-1)
+            return output
 
-        output = torch.cat((
-            pred_bboxes.view(batch_size, -1, 4),
-            obj_score.view(batch_size, -1, 1),
-            cls_score.view(batch_size, -1, self.num_classes)
-        ), dim=-1)
-
-        return output
+        return x
 
     def compute_grid_offsets(self, grid_size: int, device: torch.device) -> None:
         self.grid_size = grid_size
@@ -90,10 +88,10 @@ class YOLOLayer(nn.Module):
     def transform_output(self, prediction: Tensor) -> Tensor:
         device = prediction.device
         # B, A, W, H, 5 + C
-        x = torch.sigmoid(prediction[..., 0])
-        y = torch.sigmoid(prediction[..., 1])
-        w = torch.exp(prediction[..., 2])
-        h = torch.exp(prediction[..., 3])
+        x = prediction[..., 0].sigmoid()
+        y = prediction[..., 1].sigmoid()
+        w = prediction[..., 2].exp()
+        h = prediction[..., 3].exp()
 
         predict_bboxes = torch.zeros_like(prediction[..., :4], device=device)
         predict_bboxes[..., 0] = x.data + self.grid_x
@@ -160,3 +158,12 @@ class YOLOv3(YOLOModelInterface):
         yolo_3 = self.yolo_3(p3)
 
         return yolo_1, yolo_2, yolo_3
+
+
+if __name__ == "__main__":
+    net = YOLOv3(4)
+    image = torch.rand((1, 3, 416, 416))
+    pred = net(image)
+
+
+    print(torch.tensor(2).sqrt())
