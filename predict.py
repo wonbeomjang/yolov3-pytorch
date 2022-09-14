@@ -1,5 +1,4 @@
-import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+from pprint import pprint
 
 import torch
 import torch.nn as nn
@@ -12,8 +11,8 @@ from torchvision.io.image import read_image
 from torchvision.utils import draw_bounding_boxes
 
 from dataloader import get_loader
-from model.yolov3 import YOLOv3
-from utils.bbox import non_maximum_suppression, xywh2xyxy
+from models.yolo import YOLOv3
+from utils.bbox import non_maximum_suppression, xywh2xyxy, get_map
 
 
 def xywh2xyminmax(boxes):
@@ -59,27 +58,42 @@ def load_image(path: str):
 
 if __name__ == "__main__":
     import torchvision.transforms.functional  as TF
+    from utils.logger import Logger
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint_dir', type=str, default="checkpoints")
+    args = parser.parse_args()
+
+    # logger = Logger("kilter-gallery", args, resume=True)
+    # state_dict = logger.load_state_dict(best=True)
+
     num_classes = 4
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net = YOLOv3(num_classes).to(device)
-    train_loader, val_loader = get_loader("data/custom.yaml", 416, 1, 1)
+    train_loader, val_loader = get_loader("datasets/custom.yaml", 416, 1, 1)
     images, target, path = next(iter(train_loader))
-    net.load_state_dict(torch.load("checkpoints/best.pt", map_location=device)["state_dict"])
+    images, target, path = next(iter(train_loader))
+    # net.load_state_dict(state_dict["state_dict"])
+    net.load_state_dict(torch.load("checkpoints/exp1/best.pt", map_location="cpu")["state_dict"])
+    net.eval()
 
     image = read_image(path[0])
-    channel, width, height = image.shape
-    labels = list(map(str, target[..., -1].tolist()))
-    bbox = target[..., 1:5]
-    bbox = xywh2xyxy(bbox, width, height)
-    # out_image = draw_bounding_boxes(image, bbox, labels)
-    # plt.imshow(TF.to_pil_image(out_image))
-    # plt.show()
-
+    # channel, width, height = image.shape
+    # labels = list(map(str, target[..., -1].tolist()))
+    # bbox = target[..., 1:5]
+    # bbox = xywh2xyxy(bbox, width, height)
+    # # out_image = draw_bounding_boxes(image, bbox, labels)
+    # # plt.imshow(TF.to_pil_image(out_image))
+    # # plt.show()
+    #
     images = images.to(device)
-    preds, anchor = net(images)
-    preds = non_maximum_suppression(preds)[0].cpu()
-    out_image = draw_bounding_boxes(image, preds[..., :4])
+    preds = net(images)
+    preds = non_maximum_suppression(preds).cpu()
+    res = get_map(preds, target)
+    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(preds)[0][..., :4])
+    _, _, w, h = images[0:1].shape
     plt.imshow(TF.to_pil_image(out_image))
     plt.show()
-    #
-    #
+    # #
+    # #

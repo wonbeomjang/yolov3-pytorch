@@ -61,18 +61,21 @@ class YOLOLayer(nn.Module):
             self.compute_grid_offsets(grid_size, device)
 
         if not self.training:
-            obj_score = torch.sigmoid(x[..., 4])
-            cls_score = torch.sigmoid(x[..., 5:])
-
-            pred_bboxes = self.transform_output(x)
-            output = torch.cat((
-                pred_bboxes.view(batch_size, -1, 4),
-                obj_score.view(batch_size, -1, 1),
-                cls_score.view(batch_size, -1, self.num_classes)
-            ), dim=-1)
-            return output
+            return self.train2eval_format(x, batch_size)
 
         return x
+
+    def train2eval_format(self, x, batch_size):
+        obj_score = torch.sigmoid(x[..., 4])
+        cls_score = torch.sigmoid(x[..., 5:])
+
+        pred_bboxes = self.transform_output(x)
+        output = torch.cat((
+            pred_bboxes.view(batch_size, -1, 4),
+            obj_score.view(batch_size, -1, 1),
+            cls_score.view(batch_size, -1, self.num_classes)
+        ), dim=-1)
+        return output
 
     def compute_grid_offsets(self, grid_size: int, device: torch.device) -> None:
         self.grid_size = grid_size
@@ -165,5 +168,3 @@ if __name__ == "__main__":
     image = torch.rand((1, 3, 416, 416))
     pred = net(image)
 
-
-    print(torch.tensor(2).sqrt())

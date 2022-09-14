@@ -1,11 +1,9 @@
-import glob
 from typing import Tuple
 import yaml
 import os
 
 import cv2
 import torch
-from pathlib import Path
 import numpy as np
 import albumentations as A
 from torch import Tensor
@@ -144,4 +142,3 @@ if __name__ == "__main__":
     train_dl, val_dl = get_loader("datasets/custom.yaml", 416, 2, 1)
 
     image, target, path = next(iter(val_dl))
-    print(target)

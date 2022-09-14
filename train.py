@@ -1,4 +1,3 @@
-import os
 import random
 
 import numpy as np
@@ -6,15 +5,19 @@ import yaml
 import argparse
 
 import torch.optim
+import torch.nn.functional as TF
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data.dataloader import DataLoader
+from torchvision.io import read_image
+from torchvision.utils import draw_bounding_boxes
 from tqdm import tqdm
 
 from models.yolo import YOLOv3, YOLOModelInterface
 from loss import YOLOv3Loss
 from dataloader import get_loader
 from utils import AverageMeter, Logger
+from utils.bbox import non_maximum_suppression, get_map
 
 torch.manual_seed(100)
 torch.backends.cudnn.deterministic = True
@@ -28,6 +31,9 @@ def train_one_epoch(net: YOLOModelInterface, criterion: YOLOv3Loss, optimizer: t
     net = net.train()
     pbar = tqdm(data_loader, total=len(data_loader))
     device = next(net.parameters()).device
+    image = None
+    path = None
+
     loss_avg = AverageMeter()
     loss_coord_avg = AverageMeter()
     loss_conf_avg = AverageMeter()
@@ -35,7 +41,7 @@ def train_one_epoch(net: YOLOModelInterface, criterion: YOLOv3Loss, optimizer: t
 
     anchor = (net.yolo_1.scaled_anchors, net.yolo_2.scaled_anchors, net.yolo_3.scaled_anchors)
 
-    for image, target, _ in pbar:
+    for image, target, path in pbar:
         image = image.to(device)
         target = target.to(device)
 
@@ -69,10 +75,12 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
         loss_coord_avg = AverageMeter()
         loss_conf_avg = AverageMeter()
         loss_cls_avg = AverageMeter()
+        map_avg = AverageMeter()
 
         anchor = (net.yolo_1.scaled_anchors, net.yolo_2.scaled_anchors, net.yolo_3.scaled_anchors)
+        yolo = (net.yolo_1, net.yolo_2, net.yolo_3)
 
-        for image, target, _ in pbar:
+        for image, target, path in pbar:
             image = image.to(device)
             target = target.to(device)
 
@@ -84,8 +92,29 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
             loss_conf_avg.update(loss_detail["conf"])
             loss_cls_avg.update(loss_detail["cls"])
 
+            batch_size = image.size(0)
+            transformed_pred = []
+            for p, y in zip(pred, yolo):
+                transformed_pred += [y.train2eval_format(p, batch_size)]
+
+            transformed_pred = non_maximum_suppression(transformed_pred).cpu()
+            res = get_map(transformed_pred, target)
+            map_avg.update(res["map"].item())
+
             pbar.set_description(f"[{epoch}/{num_epoch}] Loss: {loss_avg.avg:.4f} | Coord: {loss_coord_avg.avg:.4f}, "
-                                 f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, Validation...       ")
+                                 f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, MAP: {map_avg} "
+                                 f"Validation...")
+
+        if image is not None and path is not None:
+            net = net.eval()
+            preds = net(image[0:1])
+            _, _, w, h = image[0:1].shape
+            preds = non_maximum_suppression(preds)
+            image = TF.resize(read_image(path[0]), [w, h])
+
+            out_image = draw_bounding_boxes(image, preds[..., :4][0]) if preds is not None else image
+
+            logger.log_image(out_image)
 
     return {"val/loss": loss_avg.avg, "val/loss_coord": loss_coord_avg.avg,
             "val/loss_conf": loss_conf_avg.avg, "val/loss_cls": loss_cls_avg.avg}
@@ -127,7 +156,7 @@ if __name__ == "__main__":
 
     for i in range(args.num_epochs):
         lr = optimizer.param_groups[0]['lr']
-        train_loss = train_one_epoch(net, criterion, optimizer, train_loader, lr, i, args.num_epochs)
+        # train_loss = train_one_epoch(net, criterion, optimizer, train_loader, lr, i, args.num_epochs)
         val_loss = val(net, criterion, val_loader, i, args.num_epochs)
         lr_scheduler.step(val_loss["val/loss"])
 
