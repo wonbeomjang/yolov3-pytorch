@@ -4,29 +4,49 @@ from abc import *
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.quantization import fuse_modules
 
-from models.backbone import DarkNet53
+from models.backbone import DarkNet53, DarkResidualBlock
 from models.block import conv_batch
 
 
+class YOLOModelInterface(nn.Module, metaclass=ABCMeta):
+    @abstractmethod
+    def __init__(self):
+        super(YOLOModelInterface, self).__init__()
+        self.yolo_1: Optional[YOLOLayer] = None
+        self.yolo_2: Optional[YOLOLayer] = None
+        self.yolo_3: Optional[YOLOLayer] = None
+
+    @abstractmethod
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        pass
+
+
 class FPNDownSample(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels: int, out_channels: int, relu: nn.Module = nn.LeakyReLU):
         super(FPNDownSample, self).__init__()
 
         self.conv = nn.Sequential(
-            conv_batch(in_channels, out_channels, 1, stride=1, padding=0),
-            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1),
-            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0),
-            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1),
-            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0)
+            conv_batch(in_channels, out_channels, 1, stride=1, padding=0, relu=relu),
+            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
+            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu),
+            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
+            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu)
         )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.conv(x)
 
+    def fuse_model(self) -> None:
+        for m in self.conv.modules():
+            if isinstance(m, nn.Sequential) and len(m) == 3:
+                fuse_modules(m, ["0", "1", "2"], inplace=True)
+
 
 class YOLOLayer(nn.Module):
-    def __init__(self, in_channels: int, anchors: List[Tuple[int, int]], num_classes: int, image_size: int = 416):
+    def __init__(self, in_channels: int, anchors: List[Tuple[int, int]], num_classes: int, image_size: int = 416,
+                 relu: nn.Module = nn.LeakyReLU):
         super(YOLOLayer, self).__init__()
         self.scaled_anchors = None
         self.anchor_h = None
@@ -42,7 +62,7 @@ class YOLOLayer(nn.Module):
         self.grid_size = 0
 
         self.adapt_conv = nn.Sequential(
-            conv_batch(in_channels, in_channels * 2),
+            conv_batch(in_channels, in_channels * 2, relu=relu),
             nn.Conv2d(in_channels * 2, self.num_anchors * (5 + self.num_classes), 1)
         )
 
@@ -104,24 +124,14 @@ class YOLOLayer(nn.Module):
 
         return predict_bboxes * self.stride
 
-
-class YOLOModelInterface(nn.Module, metaclass=ABCMeta):
-    @abstractmethod
-    def __init__(self):
-        super(YOLOModelInterface, self).__init__()
-        self.yolo_1: Optional[YOLOLayer] = None
-        self.yolo_2: Optional[YOLOLayer] = None
-        self.yolo_3: Optional[YOLOLayer] = None
-
-    @abstractmethod
-    def forward(self, x: Tensor) -> Tuple[Tuple[Tensor, Tensor, Tensor], Tuple[Tensor, Tensor, Tensor]]:
-        pass
+    def fuse_model(self) -> None:
+        fuse_modules(self.adapt_conv, ["0.0", "0.1", "0.2"], inplace=True)
 
 
 class YOLOv3(YOLOModelInterface):
-    def __init__(self, num_classes: int, image_size: int = 416, in_channels: int = 3):
+    def __init__(self, num_classes: int, image_size: int = 416, in_channels: int = 3, relu: nn.Module = nn.LeakyReLU):
         super(YOLOv3, self).__init__()
-        backbone = DarkNet53()
+        backbone = DarkNet53(in_channels=in_channels, relu=relu)
         anchors = [[(10, 13), (16, 30), (33, 23)], [(30, 61), (62, 45), (59, 119)], [(116, 90), (156, 198), (373, 326)]]
 
         self.adj = backbone.adj
@@ -131,20 +141,20 @@ class YOLOv3(YOLOModelInterface):
         self.block4 = backbone.block4
         self.block5 = backbone.block5
 
-        self.fpn_down_1 = FPNDownSample(1024, 512)
-        self.fpn_down_2 = FPNDownSample(512 + 256, 256)
-        self.fpn_down_3 = FPNDownSample(256 + 128, 128)
+        self.fpn_down_1 = FPNDownSample(1024, 512, relu=relu)
+        self.fpn_down_2 = FPNDownSample(512 + 256, 256, relu=relu)
+        self.fpn_down_3 = FPNDownSample(256 + 128, 128, relu=relu)
 
-        self.literal_1 = conv_batch(512, 256, 1, 1, 0)
-        self.literal_2 = conv_batch(256, 128, 1, 1, 0)
+        self.literal_1 = conv_batch(512, 256, 1, 1, 0, relu=relu)
+        self.literal_2 = conv_batch(256, 128, 1, 1, 0, relu=relu)
 
-        self.yolo_1 = YOLOLayer(512, anchors[2], num_classes, image_size)
-        self.yolo_2 = YOLOLayer(256, anchors[1], num_classes, image_size)
-        self.yolo_3 = YOLOLayer(128, anchors[0], num_classes, image_size)
+        self.yolo_1 = YOLOLayer(512, anchors[2], num_classes, image_size, relu=relu)
+        self.yolo_2 = YOLOLayer(256, anchors[1], num_classes, image_size, relu=relu)
+        self.yolo_3 = YOLOLayer(128, anchors[0], num_classes, image_size, relu=relu)
 
         self.upsample = nn.Upsample(scale_factor=2)
 
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def _forward_impl(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         x = self.adj(x)
         c1 = self.block1(x)
         c2 = self.block2(c1)
@@ -162,9 +172,37 @@ class YOLOv3(YOLOModelInterface):
 
         return yolo_1, yolo_2, yolo_3
 
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        return self._forward_impl(x)
+
+
+class QuantizableYOLOv3(YOLOv3):
+    def __init__(self, num_classes: int, image_size: int = 416, in_channels: int = 3, relu: nn.Module = nn.LeakyReLU):
+        super(QuantizableYOLOv3, self).__init__(num_classes, image_size, in_channels, relu)
+        self.quant = torch.quantization.QuantStub()
+        self.dequant = torch.quantization.DeQuantStub()
+
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        x = self.quant(x)
+        x = self._forward_impl(x)
+        x = self.dequant(x)
+
+        return x
+
+    def fuse_model(self):
+        for m in self.modules():
+            if isinstance(m, YOLOLayer) or isinstance(m, FPNDownSample) or isinstance(m, DarkResidualBlock):
+                m.fuse_model()
+
+        for m in (self.adj, self.literal_1, self.literal_2):
+            fuse_modules(m, ["0", "1", "2"], inplace=True)
+
+        for m in (self.block1, self.block2, self.block3, self.block4, self.block5):
+            fuse_modules(m, ["0.0", "0.1", "0.2"], inplace=True)
+
 
 if __name__ == "__main__":
-    net = YOLOv3(4)
-    image = torch.rand((1, 3, 416, 416))
-    pred = net(image)
+    net = QuantizableYOLOv3(10, relu=nn.ReLU)
+    net.eval()
 
+    net.fuse_model()
