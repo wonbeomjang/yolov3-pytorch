@@ -4,10 +4,10 @@ from abc import *
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.quantization import fuse_modules
 
-from models.backbone import DarkNet53, DarkResidualBlock
-from models.block import conv_batch
+from models.backbone import DarkNet53
+from models.block import ConvBatchReLU
+from torch.quantization import fuse_modules
 
 
 class YOLOModelInterface(nn.Module, metaclass=ABCMeta):
@@ -28,20 +28,15 @@ class FPNDownSample(nn.Module):
         super(FPNDownSample, self).__init__()
 
         self.conv = nn.Sequential(
-            conv_batch(in_channels, out_channels, 1, stride=1, padding=0, relu=relu),
-            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
-            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu),
-            conv_batch(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
-            conv_batch(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu)
+            ConvBatchReLU(in_channels, out_channels, 1, stride=1, padding=0, relu=relu),
+            ConvBatchReLU(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
+            ConvBatchReLU(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu),
+            ConvBatchReLU(out_channels, out_channels * 2, 3, stride=1, padding=1, relu=relu),
+            ConvBatchReLU(out_channels * 2, out_channels, 1, stride=1, padding=0, relu=relu)
         )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.conv(x)
-
-    def fuse_model(self) -> None:
-        for m in self.conv.modules():
-            if isinstance(m, nn.Sequential) and len(m) == 3:
-                fuse_modules(m, ["0", "1", "2"], inplace=True)
 
 
 class YOLOLayer(nn.Module):
@@ -62,7 +57,7 @@ class YOLOLayer(nn.Module):
         self.grid_size = 0
 
         self.adapt_conv = nn.Sequential(
-            conv_batch(in_channels, in_channels * 2, relu=relu),
+            ConvBatchReLU(in_channels, in_channels * 2, relu=relu),
             nn.Conv2d(in_channels * 2, self.num_anchors * (5 + self.num_classes), 1)
         )
 
@@ -124,9 +119,6 @@ class YOLOLayer(nn.Module):
 
         return predict_bboxes * self.stride
 
-    def fuse_model(self) -> None:
-        fuse_modules(self.adapt_conv, ["0.0", "0.1", "0.2"], inplace=True)
-
 
 class YOLOv3(YOLOModelInterface):
     def __init__(self, num_classes: int, image_size: int = 416, in_channels: int = 3, relu: nn.Module = nn.LeakyReLU):
@@ -145,8 +137,8 @@ class YOLOv3(YOLOModelInterface):
         self.fpn_down_2 = FPNDownSample(512 + 256, 256, relu=relu)
         self.fpn_down_3 = FPNDownSample(256 + 128, 128, relu=relu)
 
-        self.literal_1 = conv_batch(512, 256, 1, 1, 0, relu=relu)
-        self.literal_2 = conv_batch(256, 128, 1, 1, 0, relu=relu)
+        self.literal_1 = ConvBatchReLU(512, 256, 1, 1, 0, relu=relu)
+        self.literal_2 = ConvBatchReLU(256, 128, 1, 1, 0, relu=relu)
 
         self.yolo_1 = YOLOLayer(512, anchors[2], num_classes, image_size, relu=relu)
         self.yolo_2 = YOLOLayer(256, anchors[1], num_classes, image_size, relu=relu)
@@ -191,18 +183,13 @@ class QuantizableYOLOv3(YOLOv3):
 
     def fuse_model(self):
         for m in self.modules():
-            if isinstance(m, YOLOLayer) or isinstance(m, FPNDownSample) or isinstance(m, DarkResidualBlock):
-                m.fuse_model()
-
-        for m in (self.adj, self.literal_1, self.literal_2):
-            fuse_modules(m, ["0", "1", "2"], inplace=True)
-
-        for m in (self.block1, self.block2, self.block3, self.block4, self.block5):
-            fuse_modules(m, ["0.0", "0.1", "0.2"], inplace=True)
+            if isinstance(m, ConvBatchReLU):
+                fuse_modules(m, ["0", "1", "2"], inplace=True)
 
 
 if __name__ == "__main__":
     net = QuantizableYOLOv3(10, relu=nn.ReLU)
     net.eval()
-
     net.fuse_model()
+
+    print(net)

@@ -14,7 +14,7 @@ from utils import Logger
 
 
 def quantize_model(net: nn.Module, criterion: nn.Module, optimier: optim.Optimizer, data_loader: DataLoader):
-
+    pass
 
 
 if __name__ == "__main__":
