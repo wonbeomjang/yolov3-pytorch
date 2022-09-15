@@ -3,7 +3,7 @@ from typing import List, Optional
 
 import torch
 from torch import Tensor
-from torchmetrics.detection import MeanAveragePrecision
+from torchmetrics.detection import MAP
 
 
 def xywh2xyxy(xywh: Tensor, width: int = 1, height: int = 1) -> Tensor:
@@ -39,17 +39,17 @@ def get_iou(bbox1: Tensor, bbox2: Tensor) -> Tensor:
 
 def get_map(preds, target, image_size=416):
     batch_size = preds.size(0)
-
+    device = preds.device
     ps = []
     ts = []
 
     for i in range(batch_size):
         p = preds[preds[:, -1] == i]
         t = target[target[:, 0] == i]
-        ps += [dict(boxes=p[:, 0:4], scores=p[:, 4], labels=p[:, 6])]
-        ts += [dict(boxes=t[:, 1:5] * image_size, scores=t[:, 4], labels=t[:, 5])]
+        ps += [dict(boxes=p[:, 0:4], scores=p[:, 4], labels=p[:, 6].long())]
+        ts += [dict(boxes=t[:, 1:5] * image_size, scores=t[:, 4], labels=t[:, 5].long())]
 
-    metric = MeanAveragePrecision()
+    metric = MAP().to(device)
     metric.update(ps, ts)
 
     return metric.compute()
@@ -65,6 +65,7 @@ def non_maximum_suppression(pred: List[Tensor], obj_threshold: float = 0.3,
     """
 
     pred = torch.cat(pred, dim=1)
+    device = pred.device
     pred[..., :4] = xywh2xyxy(pred[..., :4])
     output = []
 
@@ -77,7 +78,8 @@ def non_maximum_suppression(pred: List[Tensor], obj_threshold: float = 0.3,
         score = bbox[..., 4] * bbox[..., 5:].max(1)[0]
         bbox = bbox[(-score).argsort()]
         class_prob, class_pred = bbox[..., 5:].max(1, keepdim=True)
-        detections = torch.cat([bbox[..., :5], class_prob.float(), class_pred.float(), torch.full(class_pred.shape, i)], dim=1)
+        detections = torch.cat([bbox[..., :5], class_prob.float(), class_pred.float(),
+                                torch.full(class_pred.shape, i, device=device)], dim=1)
 
         boxes = []
         while detections.size(0):

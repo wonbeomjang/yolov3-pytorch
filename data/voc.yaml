@@ -1,0 +1,7 @@
+path: ./PASCAL_VOC
+train: train/images
+val: val/images
+
+nc: 20
+names: ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "cow", "chair",
+        "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
