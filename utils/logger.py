@@ -61,7 +61,7 @@ class Logger:
             if weights is not None:
                 wandb_id = torch.load(weights, map_location="cpu").get("wandb_id")
             else:
-                wandb_id = torch.load(os.path.join(self.checkpoint_dir, "best.pt"), map_location="cpu").get("wandb_id")\
+                wandb_id = torch.load(os.path.join(self.checkpoint_dir, "last.pt"), map_location="cpu").get("wandb_id")\
                     if resume else None
             wandb_run = self.wandb.init(project=project, dir=self.checkpoint_dir, id=wandb_id, resume="allow")
             wandb_run.config.update(config, allow_val_change=True)
