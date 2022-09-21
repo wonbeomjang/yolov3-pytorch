@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     train_loader, val_loader = get_loader(args.data, args.image_size, args.batch_size, args.scale)
 
-    sample_image = torch.randn((1, 3, args.image_size, args.image_size)).to(device)
+    sample_image = torch.randn((1, 3, args.image_size, args.image_size))
     net.forward(sample_image)
 
     if args.resume:
