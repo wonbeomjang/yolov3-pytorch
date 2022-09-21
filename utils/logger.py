@@ -80,6 +80,7 @@ class Logger:
     def end_epoch(self):
         if self.wandb:
             self.wandb.log(self.log_dict)
+        self.log_dict.clear()
 
     def finish(self):
         if self.wandb:
