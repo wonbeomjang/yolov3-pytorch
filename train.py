@@ -103,7 +103,7 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
 
             pbar.set_description(f"[{epoch}/{num_epoch}] Loss: {loss_avg.avg:.4f} | Coord: {loss_coord_avg.avg:.4f}, "
                                  f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, "
-                                 f"MAP: {map_avg.avg} Validation...")
+                                 f"MAP: {map_avg.avg: .4f} Validation...")
 
         # if image is not None and path is not None:
         #     net = net.eval()
