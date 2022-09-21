@@ -135,11 +135,12 @@ if __name__ == "__main__":
     parser.add_argument("--class_scale", type=float, default=1.0)
     parser.add_argument("--scale", type=float, default=1.0)
     parser.add_argument('--image_size', type=int, default=416)
+    parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
 
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    logger = Logger(project="yolov3-pytorch", config=args)
+    logger = Logger(project="yolov3-pytorch", config=args, resume=args.resume)
 
     with open(args.data) as f:
         data_file = yaml.load(f, Loader=yaml.FullLoader)

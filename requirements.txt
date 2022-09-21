@@ -1,0 +1,7 @@
+pycocotools==2.0.5
+torchmetrics==0.6.0
+--extra-index-url https://download.pytorch.org/whl/cu113
+torch==1.12.1
+torchvision==0.13.1
+torchaudio==0.12.1
+wandb==0.13.3
