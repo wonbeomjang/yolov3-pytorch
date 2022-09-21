@@ -1,5 +1,5 @@
 from argparse import Namespace
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import os
 
 import pkg_resources as pkg
@@ -106,11 +106,12 @@ class Logger:
             self.metrix = metrix
             torch.save(save_info, os.path.join(self.checkpoint_dir, "best.pt"))
 
-    def load_state_dict(self, weight: Optional[str] = None, best: bool = False):
+    def load_state_dict(self, weight: Optional[str] = None, best: bool = False,
+                        map_location: Union[torch.device, str] = "cpu"):
         if weight:
-            torch.load(weight, map_location="cpu")
+            torch.load(weight, map_location=map_location)
         if self.wandb_run:
-            return torch.load(os.path.join(self.checkpoint_dir, "best.pt" if best else "last.pt"), map_location="cpu")
+            return torch.load(os.path.join(self.checkpoint_dir, "best.pt" if best else "last.pt"), map_location=map_location)
         return None
 
 # 임종한

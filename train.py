@@ -145,24 +145,21 @@ if __name__ == "__main__":
     with open(args.data) as f:
         data_file = yaml.load(f, Loader=yaml.FullLoader)
 
-    net = YOLOv3(data_file["nc"], args.image_size)
+    net = YOLOv3(data_file["nc"], args.image_size).to(device)
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     lr_scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=20, verbose=True)
     criterion = YOLOv3Loss(args.conf_threshold, args.coord_scale, args.no_obj_scale, args.obj_scale, args.class_scale)
 
     train_loader, val_loader = get_loader(args.data, args.image_size, args.batch_size, args.scale)
 
-    sample_image = torch.randn((1, 3, args.image_size, args.image_size))
+    sample_image = torch.randn((1, 3, args.image_size, args.image_size)).to(device)
     net.forward(sample_image)
 
     if args.resume:
-        state_dict = logger.load_state_dict()
+        state_dict = logger.load_state_dict(map_location=device)
         net.load_state_dict(state_dict["state_dict"])
         optimizer.load_state_dict(state_dict["optimizer"])
         lr_scheduler.load_state_dict(state_dict["lr_scheduler"])
-
-    net = net.to(device)
-    criterion = criterion.to(device)
 
     for i in range(args.num_epochs):
         lr = optimizer.param_groups[0]['lr']
