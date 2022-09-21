@@ -93,9 +93,10 @@ class Logger:
             artifact.add_file(os.path.join(self.checkpoint_dir, "best.pt"), name="best.pt")
             self.wandb_run.log_artifact(artifact)
 
-    def save_model(self, net: nn.Module, optimizer: optim.Optimizer, lr_scheduler: Any, metrix: Optional[float] = None):
+    def save_model(self, net: nn.Module, optimizer: optim.Optimizer, lr_scheduler: Any, epoch: int,
+                   metrix: Optional[float] = None):
         save_info = {"state_dict": net.state_dict(), "optimizer": optimizer.state_dict(),
-                     "lr_scheduler": lr_scheduler.state_dict()}
+                     "lr_scheduler": lr_scheduler.state_dict(), "epoch": epoch, "metrix": self.metrix}
 
         if self.wandb:
             save_info["wandb_id"] = self.wandb_run.id

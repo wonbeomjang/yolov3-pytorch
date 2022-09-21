@@ -154,12 +154,15 @@ if __name__ == "__main__":
 
     sample_image = torch.randn((1, 3, args.image_size, args.image_size)).to(device)
     net.forward(sample_image)
+    start_epoch = 0
 
     if args.resume:
         state_dict = logger.load_state_dict(map_location=device)
         net.load_state_dict(state_dict["state_dict"])
         optimizer.load_state_dict(state_dict["optimizer"])
         lr_scheduler.load_state_dict(state_dict["lr_scheduler"])
+        start_epoch = state_dict["epoch"]
+        logger.metrix = state_dict["metrix"]
 
     for i in range(args.num_epochs):
         lr = optimizer.param_groups[0]['lr']
@@ -169,7 +172,7 @@ if __name__ == "__main__":
 
         logger.log(train_loss)
         logger.log(val_loss)
-        logger.save_model(net, optimizer, lr_scheduler, metrix=val_loss["val/loss"])
+        logger.save_model(net, optimizer, lr_scheduler, metrix=val_loss["val/loss"], epoch=i)
         logger.end_epoch()
 
     logger.finish()

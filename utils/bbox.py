@@ -72,7 +72,7 @@ def non_maximum_suppression(pred: List[Tensor], obj_threshold: float = 0.3,
     for i, bbox in enumerate(pred):
         bbox = bbox[bbox[..., 4] > obj_threshold]
 
-        if not bbox.size(0):
+        if bbox is None:
             continue
 
         score = bbox[..., 4] * bbox[..., 5:].max(1)[0]
