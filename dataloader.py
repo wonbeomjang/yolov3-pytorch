@@ -1,6 +1,7 @@
 from typing import Tuple
 import yaml
 import os
+import multiprocessing
 
 import cv2
 import torch
@@ -132,8 +133,8 @@ def get_loader(data_file: str, image_size: int, batch_size: int, scale: float) -
 
     train_ds.transform, val_ds.transform = get_transform(image_size, scale)
 
-    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1)
+    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1)
 
     return train_dl, val_dl
 
