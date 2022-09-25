@@ -164,7 +164,7 @@ if __name__ == "__main__":
         start_epoch = state_dict["epoch"]
         logger.metrix = state_dict["metrix"]
 
-    for i in range(args.num_epochs):
+    for i in range(start_epoch, args.num_epochs):
         lr = optimizer.param_groups[0]['lr']
         train_loss = train_one_epoch(net, criterion, optimizer, train_loader, lr, i, args.num_epochs)
         val_loss = val(net, criterion, val_loader, i, args.num_epochs)
