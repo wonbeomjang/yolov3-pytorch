@@ -1,3 +1,6 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import random
 
 import numpy as np
@@ -98,8 +101,9 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
                 transformed_pred += [y.train2eval_format(p, batch_size)]
 
             transformed_pred = non_maximum_suppression(transformed_pred)
-            res = get_map(transformed_pred, target)
-            map_avg.update(res["map"].item())
+            if transformed_pred is not None:
+                res = get_map(transformed_pred, target)
+                map_avg.update(res["map"].item())
 
             pbar.set_description(f"[{epoch}/{num_epoch}] Loss: {loss_avg.avg:.4f} | Coord: {loss_coord_avg.avg:.4f}, "
                                  f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, "
@@ -123,9 +127,9 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default="datasets/custom.yaml")
+    parser.add_argument('--data', type=str, default="hand_data/oxford.yaml")
     parser.add_argument('--checkpoint_dir', type=str, default="checkpoints")
-    parser.add_argument('--num_epochs', type=int, default=300)
+    parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--conf_threshold", type=float, default=0.5)

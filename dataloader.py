@@ -31,6 +31,7 @@ class VOCDataset(Dataset):
         label_path = os.path.join(self.label_dir, os.path.splitext(self.image_names[index])[0] + ".txt")  # /PASCAL_VOC/labels/000009.txt
         img_path = os.path.join(self.img_dir, self.image_names[index])  # /PASCAL_VOC/images/000009.jpg
         image = np.array(Image.open(img_path).convert("RGB"))  # albumentation을 적용하기 위해 np.array로 변환합니다.
+        # print(f"{os.path.splitext(self.image_names[index])[0]}.txt")
 
         labels = None
         if os.path.exists(label_path):
@@ -43,13 +44,13 @@ class VOCDataset(Dataset):
             # apply albumentations
             augmentations = self.transform(image=image, bboxes=labels)
             image = augmentations['image']
-            targets = augmentations['bboxes']
+            labels = augmentations['bboxes']
 
             # for DataLoader
             # lables: ndarray -> tensor
             # dimension: [batch, cx, cy, w, h, class]
-            if targets is not None:
-                targets = torch.zeros((len(labels), 6))
+            targets = torch.zeros((len(labels), 6))
+            if len(labels):
                 targets[:, 1:] = torch.tensor(labels)
         else:
             targets = labels

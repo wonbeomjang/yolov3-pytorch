@@ -1,4 +1,6 @@
 from pprint import pprint
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import torch
 import torch.nn as nn
@@ -68,14 +70,14 @@ if __name__ == "__main__":
     # logger = Logger("kilter-gallery", args, resume=True)
     # state_dict = logger.load_state_dict(best=True)
 
-    num_classes = 4
+    num_classes = 1
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net = YOLOv3(num_classes).to(device)
-    train_loader, val_loader = get_loader("datasets/custom.yaml", 416, 1, 1)
+    train_loader, val_loader = get_loader("EgoHands/data.yaml", 416, 1, 1)
     images, target, path = next(iter(train_loader))
     images, target, path = next(iter(train_loader))
     # net.load_state_dict(state_dict["state_dict"])
-    net.load_state_dict(torch.load("checkpoints/exp1/best.pt", map_location="cpu")["state_dict"])
+    net.load_state_dict(torch.load("checkpoints/exp63/best.pt", map_location="cpu")["state_dict"])
     net.eval()
 
     image = read_image(path[0])
@@ -90,8 +92,9 @@ if __name__ == "__main__":
     images = images.to(device)
     preds = net(images)
     preds = non_maximum_suppression(preds).cpu()
-    res = get_map(preds, target)
-    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(preds)[0][..., :4])
+    # res = get_map(preds, target)
+    print(xywh2xyxy(preds)[..., :4])
+    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(preds)[..., :4])
     _, _, w, h = images[0:1].shape
     plt.imshow(TF.to_pil_image(out_image))
     plt.show()
