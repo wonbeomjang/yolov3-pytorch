@@ -10,7 +10,7 @@ from PIL import Image
 
 import torchvision.transforms.functional as F
 from torchvision.io.image import read_image
-from torchvision.utils import draw_bounding_boxes
+from torchvision.utils import draw_bounding_boxes, save_image
 
 from dataloader import get_loader
 from models.yolo import YOLOv3
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     images, target, path = next(iter(train_loader))
     images, target, path = next(iter(train_loader))
     # net.load_state_dict(state_dict["state_dict"])
-    net.load_state_dict(torch.load("checkpoints/exp63/best.pt", map_location="cpu")["state_dict"])
+    net.load_state_dict(torch.load("checkpoints/exp1/best.pt", map_location="cpu")["state_dict"])
     net.eval()
 
     image = read_image(path[0])
@@ -93,10 +93,8 @@ if __name__ == "__main__":
     preds = net(images)
     preds = non_maximum_suppression(preds).cpu()
     # res = get_map(preds, target)
-    print(xywh2xyxy(preds)[..., :4])
-    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(preds)[..., :4])
+    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target)[..., 1:5] * 416)
     _, _, w, h = images[0:1].shape
-    plt.imshow(TF.to_pil_image(out_image))
-    plt.show()
+    save_image(out_image.float().div(255), "tse.png")
     # #
     # #

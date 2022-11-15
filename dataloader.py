@@ -1,3 +1,9 @@
+import os
+
+from matplotlib import pyplot as plt
+
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 from typing import Tuple
 import yaml
 import os
@@ -12,6 +18,8 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from albumentations.pytorch.transforms import ToTensorV2
 from PIL import Image
+
+import torchvision.transforms.functional as TF
 
 
 class VOCDataset(Dataset):
@@ -53,8 +61,10 @@ class VOCDataset(Dataset):
             if len(labels):
                 targets[:, 1:] = torch.tensor(labels)
         else:
-            targets = labels
-
+            targets = torch.zeros((len(labels), 6))
+            if len(labels):
+                targets[:, 1:] = torch.tensor(labels)
+            image = TF.resize(TF.to_tensor(image), [416, 416])
         return image, targets, img_path
 
 
@@ -67,6 +77,7 @@ def collate_fn(batch) -> Tuple[Tensor, Tensor, Tensor]:
         boxes[:, 0] = b_i
     targets = torch.cat(targets, 0)
     imgs = torch.stack([img for img in imgs])
+
     return imgs, targets, paths
 
 
@@ -141,6 +152,18 @@ def get_loader(data_file: str, image_size: int, batch_size: int, scale: float) -
 
 
 if __name__ == "__main__":
-    train_dl, val_dl = get_loader("datasets/custom.yaml", 416, 2, 1)
+    from torchvision.utils import draw_bounding_boxes
+    from torchvision.io import read_image
+
+    from utils.bbox import xywh2xyxy
+
+    train_dl, val_dl = get_loader("EgoHands/data.yaml", 416, 1, 1)
 
     image, target, path = next(iter(val_dl))
+
+    image = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
+    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target[..., 1:5]) * 416)
+
+    plt.imshow(TF.to_pil_image(out_image))
+    plt.show()
+

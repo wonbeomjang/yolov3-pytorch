@@ -6,7 +6,7 @@ from torch import Tensor
 from torchmetrics.detection import MAP
 
 
-def xywh2xyxy(xywh: Tensor, width: int = 1, height: int = 1) -> Tensor:
+def xywh2xyxy(xywh: Tensor) -> Tensor:
     xywh[..., 0], xywh[..., 2] = xywh[..., 0] - torch.div(xywh[..., 2], 2.0), xywh[..., 0] + torch.div(xywh[..., 2], 2.0)
     xywh[..., 1], xywh[..., 3] = xywh[..., 1] - torch.div(xywh[..., 3], 2.0), xywh[..., 1] + torch.div(xywh[..., 3], 2.0)
 
@@ -46,6 +46,7 @@ def get_map(preds, target, image_size=416):
     for i in range(batch_size):
         p = preds[preds[:, -1] == i]
         t = target[target[:, 0] == i]
+
         ps += [dict(boxes=p[:, 0:4], scores=p[:, 4], labels=p[:, 6].long())]
         ts += [dict(boxes=t[:, 1:5] * image_size, scores=t[:, 4], labels=t[:, 5].long())]
 

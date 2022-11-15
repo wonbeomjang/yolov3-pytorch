@@ -44,7 +44,6 @@ class YOLOv3Loss(nn.Module):
             loss_w = self.mse_loss(w[obj_mask].sqrt(), tw[obj_mask].sqrt())
             loss_h = self.mse_loss(h[obj_mask].sqrt(), th[obj_mask].sqrt())
 
-
             loss_coord = loss_x + loss_y + loss_w + loss_h
             loss_coord *= self.coord_scale
 
