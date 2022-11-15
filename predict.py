@@ -77,24 +77,14 @@ if __name__ == "__main__":
     images, target, path = next(iter(train_loader))
     images, target, path = next(iter(train_loader))
     # net.load_state_dict(state_dict["state_dict"])
-    net.load_state_dict(torch.load("checkpoints/exp1/best.pt", map_location="cpu")["state_dict"])
+    net.load_state_dict(torch.load("checkpoints/exp5/best.pt", map_location="cpu")["state_dict"])
     net.eval()
 
-    image = read_image(path[0])
-    # channel, width, height = image.shape
-    # labels = list(map(str, target[..., -1].tolist()))
-    # bbox = target[..., 1:5]
-    # bbox = xywh2xyxy(bbox, width, height)
-    # # out_image = draw_bounding_boxes(image, bbox, labels)
-    # # plt.imshow(TF.to_pil_image(out_image))
-    # # plt.show()
-    #
     images = images.to(device)
     preds = net(images)
     preds = non_maximum_suppression(preds).cpu()
-    # res = get_map(preds, target)
-    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target)[..., 1:5] * 416)
-    _, _, w, h = images[0:1].shape
+    images = images.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
+    out_image = draw_bounding_boxes(TF.resize(images, [416, 416]), xywh2xyxy(preds)[..., 0:4])
     save_image(out_image.float().div(255), "tse.png")
     # #
     # #

@@ -13,7 +13,7 @@ from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data.dataloader import DataLoader
 from torchvision.io import read_image
-from torchvision.utils import draw_bounding_boxes
+from torchvision.utils import draw_bounding_boxes, save_image
 from tqdm import tqdm
 
 from models.yolo import YOLOv3, YOLOModelInterface
@@ -65,8 +65,12 @@ def train_one_epoch(net: YOLOModelInterface, criterion: YOLOv3Loss, optimizer: t
                              f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, Learning Rate: {lr}")
 
     if image is not None and target is not None:
-        image = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
-        out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target[..., 1:5]) * 416)
+        net = net.eval()
+        image = image[0:1, ...].to(device)
+        preds = net(image)
+        preds = non_maximum_suppression(preds).cpu()
+        images = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
+        out_image = draw_bounding_boxes(TF.resize(images, [416, 416]), xywh2xyxy(preds)[..., 0:4]).float().div(255)
         logger.log_image(out_image)
 
     return {"train/loss": loss_avg.avg, "train/loss_coord": loss_coord_avg.avg,
