@@ -1,13 +1,20 @@
+from pprint import pprint
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
-import torchvision.transforms.functional as F
 from PIL import Image
-from torchvision.utils import draw_bounding_boxes
 
+import torchvision.transforms.functional as F
+from torchvision.io.image import read_image
+from torchvision.utils import draw_bounding_boxes, save_image
+
+from dataloader import get_loader
 from models.yolo import YOLOv3
-from utils.bbox import non_maximum_suppression, xywh2xyxy
+from utils.bbox import non_maximum_suppression, xywh2xyxy, get_map
 
 
 def xywh2xyminmax(boxes):
@@ -33,18 +40,18 @@ def get_bbox(net: nn.Module, image: torch.Tensor, conf_threshold: float = 0.5):
     return bbox
 
 
-def show(image):
-    if not isinstance(image, list):
-        image = [image]
-    fix, axs = plt.subplots(ncols=len(image), squeeze=False)
-    for i, img in enumerate(image):
+def show(imgs):
+    if not isinstance(imgs, list):
+        imgs = [imgs]
+    fix, axs = plt.subplots(ncols=len(imgs), squeeze=False)
+    for i, img in enumerate(imgs):
         img = img.detach()
         img = F.to_pil_image(img)
         axs[0, i].imshow(np.asarray(img))
         axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
 
 
-def read_image(path: str):
+def load_image(path: str):
     image = Image.open(path)
     x = F.to_tensor(image)
     x = x.unsqueeze(0)
@@ -52,14 +59,16 @@ def read_image(path: str):
 
 
 if __name__ == "__main__":
-    import torchvision.transforms.functional as TF
-    from torchvision.utils import save_image
-    from dataloader import get_loader
+    import torchvision.transforms.functional  as TF
+    from utils.logger import Logger
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint_dir', type=str, default="checkpoints")
     args = parser.parse_args()
+
+    # logger = Logger("kilter-gallery", args, resume=True)
+    # state_dict = logger.load_state_dict(best=True)
 
     num_classes = 1
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -67,13 +76,15 @@ if __name__ == "__main__":
     train_loader, val_loader = get_loader("EgoHands/data.yaml", 416, 1, 1)
     images, target, path = next(iter(train_loader))
     images, target, path = next(iter(train_loader))
-    net.load_state_dict(torch.load("checkpoints/exp1/best.pt", map_location="cpu")["state_dict"])
+    # net.load_state_dict(state_dict["state_dict"])
+    net.load_state_dict(torch.load("checkpoints/exp5/best.pt", map_location="cpu")["state_dict"])
     net.eval()
 
-    image = read_image(path[0])
     images = images.to(device)
     preds = net(images)
     preds = non_maximum_suppression(preds).cpu()
-    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target)[..., 1:5] * 416)
-    _, _, w, h = images[0:1].shape
+    images = images.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
+    out_image = draw_bounding_boxes(TF.resize(images, [416, 416]), xywh2xyxy(preds)[..., 0:4])
     save_image(out_image.float().div(255), "tse.png")
+    # #
+    # #
