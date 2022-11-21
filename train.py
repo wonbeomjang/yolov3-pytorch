@@ -1,6 +1,3 @@
-import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
 import random
 
 import numpy as np
@@ -35,7 +32,6 @@ def train_one_epoch(net: YOLOModelInterface, criterion: YOLOv3Loss, optimizer: t
     pbar = tqdm(data_loader, total=len(data_loader))
     device = next(net.parameters()).device
     image = None
-    path = None
     target = None
 
     loss_avg = AverageMeter()

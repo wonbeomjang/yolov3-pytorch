@@ -1,9 +1,3 @@
-import os
-
-from matplotlib import pyplot as plt
-
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
 from typing import Tuple
 import yaml
 import os
@@ -12,14 +6,13 @@ import multiprocessing
 import cv2
 import torch
 import numpy as np
-import albumentations as A
 from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import torchvision.transforms.functional as TF
+import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from PIL import Image
-
-import torchvision.transforms.functional as TF
 
 
 class VOCDataset(Dataset):
@@ -31,6 +24,7 @@ class VOCDataset(Dataset):
         self.image_names = os.listdir(self.img_dir)
         self.transform = transform
         self.trans_params = trans_params
+        self.check_dataset()
 
     def __len__(self) -> int:
         return len(self.image_names)
@@ -38,8 +32,7 @@ class VOCDataset(Dataset):
     def __getitem__(self, index: int) -> Tuple[Tensor, Tensor, str]:
         label_path = os.path.join(self.label_dir, os.path.splitext(self.image_names[index])[0] + ".txt")  # /PASCAL_VOC/labels/000009.txt
         img_path = os.path.join(self.img_dir, self.image_names[index])  # /PASCAL_VOC/images/000009.jpg
-        image = np.array(Image.open(img_path).convert("RGB"))  # albumentation을 적용하기 위해 np.array로 변환합니다.
-        # print(f"{os.path.splitext(self.image_names[index])[0]}.txt")
+        image = np.array(Image.open(img_path).convert("RGB"))  # albumentation을 적용하기 위해 np.array로 변환합니다
 
         labels = None
         if os.path.exists(label_path):
@@ -66,6 +59,14 @@ class VOCDataset(Dataset):
                 targets[:, 1:] = torch.tensor(labels)
             image = TF.resize(TF.to_tensor(image), [416, 416])
         return image, targets, img_path
+
+    def check_dataset(self):
+        for name in self.image_names:
+            label_path = os.path.join(self.label_dir, os.path.splitext(name)[0] + ".txt")
+            img_path = os.path.join(self.img_dir, name)
+            if not os.path.exists(label_path):
+                print(label_path)
+
 
 
 def collate_fn(batch) -> Tuple[Tensor, Tensor, Tensor]:
@@ -153,7 +154,7 @@ def get_loader(data_file: str, image_size: int, batch_size: int, scale: float) -
 
 if __name__ == "__main__":
     from torchvision.utils import draw_bounding_boxes
-    from torchvision.io import read_image
+    from matplotlib import pyplot as plt
 
     from utils.bbox import xywh2xyxy
 
