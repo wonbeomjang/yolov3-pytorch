@@ -131,7 +131,7 @@ def get_transform(image_size: int, scale: float) -> Tuple[A.Compose, A.Compose]:
         bbox_params=A.BboxParams(format='yolo', min_visibility=0.4, label_fields=[])
     )
 
-    return val_transforms, val_transforms
+    return train_transforms, val_transforms
 
 
 def get_loader(data_file: str, image_size: int, batch_size: int, scale: float) -> Tuple[DataLoader, DataLoader]:

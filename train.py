@@ -9,8 +9,7 @@ import torchvision.transforms.functional as TF
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data.dataloader import DataLoader
-from torchvision.io import read_image
-from torchvision.utils import draw_bounding_boxes, save_image
+from torchvision.utils import draw_bounding_boxes
 from tqdm import tqdm
 
 from models.yolo import YOLOv3, YOLOModelInterface
@@ -101,30 +100,19 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
             loss_conf_avg.update(loss_detail["conf"])
             loss_cls_avg.update(loss_detail["cls"])
 
-            # batch_size = image.size(0)
-            # transformed_pred = []
-            # for p, y in zip(pred, yolo):
-            #     transformed_pred += [y.train2eval_format(p, batch_size)]
-            #
-            # transformed_pred = non_maximum_suppression(transformed_pred)
-            # if transformed_pred is not None:
-            #     res = get_map(transformed_pred, target)
-            #     map_avg.update(res["map"].item())
+            batch_size = image.size(0)
+            transformed_pred = []
+            for p, y in zip(pred, yolo):
+                transformed_pred += [y.train2eval_format(p, batch_size)]
+
+            transformed_pred = non_maximum_suppression(transformed_pred)
+            if transformed_pred is not None:
+                res = get_map(transformed_pred, target)
+                map_avg.update(res["map"].item())
 
             pbar.set_description(f"[{epoch}/{num_epoch}] Loss: {loss_avg.avg:.4f} | Coord: {loss_coord_avg.avg:.4f}, "
                                  f"Confidence: {loss_conf_avg.avg:.4f}, Class: {loss_cls_avg.avg:.4f}, "
                                  f"MAP: {map_avg.avg: .4f} Validation...")
-
-        # if image is not None and path is not None:
-        #     net = net.eval()
-        #     preds = net(image[0:1])
-        #     _, _, w, h = image[0:1].shape
-        #     preds = non_maximum_suppression(preds)
-        #     image = TF.resize(read_image(path[0]), [w, h])
-        #
-        #     out_image = draw_bounding_boxes(image, preds[..., :4][0]) if preds is not None else image
-        #
-        #     logger.log_image(out_image)
 
     return {"val/loss": loss_avg.avg, "val/loss_coord": loss_coord_avg.avg,
             "val/loss_conf": loss_conf_avg.avg, "val/loss_cls": loss_cls_avg.avg, "val/map": map_avg.avg}
@@ -133,15 +121,15 @@ def val(net: YOLOModelInterface, criterion: YOLOv3Loss, data_loader: DataLoader,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default="hand_data/oxford.yaml")
+    parser.add_argument('--data', type=str, default="data/voc.yaml")
     parser.add_argument('--checkpoint_dir', type=str, default="checkpoints")
     parser.add_argument('--num_epochs', type=int, default=300)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--conf_threshold", type=float, default=0.5)
     parser.add_argument("--coord_scale", type=float, default=2.0)
-    parser.add_argument("--no_obj_scale", type=float, default=0.5)
-    parser.add_argument("--obj_scale", type=float, default=0.5)
+    parser.add_argument("--no_obj_scale", type=float, default=100)
+    parser.add_argument("--obj_scale", type=float, default=1)
     parser.add_argument("--class_scale", type=float, default=1.0)
     parser.add_argument("--scale", type=float, default=1.0)
     parser.add_argument('--image_size', type=int, default=416)
