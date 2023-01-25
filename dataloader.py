@@ -18,7 +18,7 @@ from PIL import Image
 class VOCDataset(Dataset):
     def __init__(self, img_dir, transform=None, trans_params=None):
         self.img_dir = img_dir
-        img_dir = img_dir.split("/")
+        img_dir = img_dir.split(os.path.sep)
         img_dir[-1] = "labels"
         self.label_dir = os.path.join(*img_dir)
         self.image_names = os.listdir(self.img_dir)
@@ -65,7 +65,7 @@ class VOCDataset(Dataset):
             label_path = os.path.join(self.label_dir, os.path.splitext(name)[0] + ".txt")
             img_path = os.path.join(self.img_dir, name)
             if not os.path.exists(label_path):
-                print(label_path)
+                print(label_path, img_path)
 
 
 

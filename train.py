@@ -63,10 +63,12 @@ def train_one_epoch(net: YOLOModelInterface, criterion: YOLOv3Loss, optimizer: t
         net = net.eval()
         image = image[0:1, ...].to(device)
         preds = net(image)
-        preds = non_maximum_suppression(preds).cpu()
-        images = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
-        out_image = draw_bounding_boxes(TF.resize(images, [416, 416]), xywh2xyxy(preds)[..., 0:4]).float().div(255)
-        logger.log_image(out_image)
+        preds = non_maximum_suppression(preds)
+        if preds is not None:
+            preds = preds.cpu()
+            image = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
+            image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(preds)[..., 0:4]).float().div(255)
+        logger.log_image(image)
 
     return {"train/loss": loss_avg.avg, "train/loss_coord": loss_coord_avg.avg,
             "train/loss_conf": loss_conf_avg.avg, "train/loss_cls": loss_cls_avg.avg, "train/learning_rate": lr}
@@ -125,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint_dir', type=str, default="checkpoints")
     parser.add_argument('--num_epochs', type=int, default=300)
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--conf_threshold", type=float, default=0.5)
     parser.add_argument("--coord_scale", type=float, default=2.0)
     parser.add_argument("--no_obj_scale", type=float, default=100)
