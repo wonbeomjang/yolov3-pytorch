@@ -130,3 +130,5 @@ if __name__ == "__main__":
     with open('voc.yaml', 'w', encoding='utf8') as f:
         yaml.dump(out_yaml, f)
 
+    shutil.rmtree(path)
+

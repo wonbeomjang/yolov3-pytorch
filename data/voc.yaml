@@ -20,6 +20,6 @@ names:
 - bus
 - pottedplant
 nc: 20
-path: .\PASCAL_VOC
+path: ./PASCAL_VOC
 train: train\images
 val: val\images
