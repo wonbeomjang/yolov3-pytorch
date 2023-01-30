@@ -89,7 +89,7 @@ class YOLOv3Loss(nn.Module):
 
         size_t = batch_size, num_anchors, grid_size, grid_size, num_classes
         tcls = torch.zeros(size_t, device=device, dtype=torch.float32)
-        print(targets)
+        
         t_xy = targets[:, 1:3] * grid_size
         t_wh = targets[:, 3:5] * grid_size
         t_x, t_y = t_xy.t()
