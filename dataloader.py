@@ -146,25 +146,8 @@ def get_loader(data_file: str, image_size: int, batch_size: int, scale: float) -
 
     train_ds.transform, val_ds.transform = get_transform(image_size, scale)
 
-    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1)
-    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1, worker_init_fn=np.random.seed(0))
+    val_dl = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=multiprocessing.cpu_count() - 1, worker_init_fn=np.random.seed(0))
 
     return train_dl, val_dl
-
-
-if __name__ == "__main__":
-    from torchvision.utils import draw_bounding_boxes
-    from matplotlib import pyplot as plt
-
-    from utils.bbox import xywh2xyxy
-
-    train_dl, val_dl = get_loader("EgoHands/data.yaml", 416, 1, 1)
-
-    image, target, path = next(iter(val_dl))
-
-    image = image.mul(255).add_(0.5).clamp_(0, 255).to("cpu", torch.uint8)[0]
-    out_image = draw_bounding_boxes(TF.resize(image, [416, 416]), xywh2xyxy(target[..., 1:5]) * 416)
-
-    plt.imshow(TF.to_pil_image(out_image))
-    plt.show()
 
