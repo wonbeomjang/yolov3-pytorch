@@ -18,9 +18,10 @@ from dataloader import get_loader
 from utils import AverageMeter, Logger
 from utils.bbox import non_maximum_suppression, get_map, xywh2xyxy
 
-torch.manual_seed(100)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+torch.manual_seed(100)
+torch.cuda.manual_seed(100)
 np.random.seed(100)
 random.seed(100)
 
